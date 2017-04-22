@@ -1,5 +1,5 @@
 # Nim-Game-Haskell
-Implementation in Haskell of variant of the Game of Nim, played on a board comrising five numbered rows of stars, initially set up as follows
+Implementation in Haskell of variant of the Game of Nim. It is played on a board comrising five numbered rows of stars, initially set up as follows:
 
 ```
 1: * * * * * 
@@ -8,6 +8,7 @@ Implementation in Haskell of variant of the Game of Nim, played on a board comri
 4: * * 
 5: * 
 ```
+
 # Rules
 Two players then take it in turn to remove one or more stars from the end of a single row. The winner is the player who makes the board empty, that is who removes the final star of stars from the board.
 
