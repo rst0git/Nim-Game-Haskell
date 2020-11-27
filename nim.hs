@@ -1,125 +1,72 @@
-import Data.Char -- Required for digitToInt and isDigit
+import qualified Data.Sequence as Seq
+import qualified Data.Foldable as Fol
+import qualified Data.List as List
+import Data.Maybe
 
-{-
+-- Player type is used to take control of the turns and who wins
+data Player = One | Two deriving (Show, Eq)
 
-For simplicity the player number is
-represented as an integer (1 or 2).
+-- Change player returns the player that is NOT the one passed as argument
+change :: Player -> Player
+change One = Two
+change Two = One
 
--}
+-- Board is an alias for a Sequence of Ints, as they allow us to update single
+-- elements in easily.
+type Board = Seq.Seq Int
 
-next :: Int -> Int
-next 1 = 2
-next 2 = 1
+-- This is the initial board structure
+initialBoard :: Board
+initialBoard = Seq.fromList [5, 4, 3, 2, 1]
 
-{-
+-- The move method checks if the a movement can be executed and returns the
+-- updated board in case it is possible
+move :: Board -> (Int, Int) -> Maybe Board
+move board (row, stars)
+  | and [(Seq.index board row) >= stars,
+          row < 5] = Just (Seq.adjust (\x -> x - stars) row board)
+  | otherwise = Nothing
 
-In turn, we represent the board as a list
-comprising the number of stars that remain
-on each row, with the initial board given by
-the list [5,4,3,2,1] and the game being finished
-when all rows have no stars left.
+-- The display methods transforms a Board into a nice, enumerated String of
+-- asterisks
+display :: Board -> String
+display board = List.intercalate "\n" (zipWith (++) numbers (stars board))
+                where numbers = ["1. ", "2. ", "3. ", "4. ", "5. "]
+                      stars board = [(concat . take n) (repeat "* ")
+                                    | n <- Fol.toList board]
 
--}
+-- The next methods are the ones that control IO
+main :: IO ()
+main = nim
 
-type Board = [Int]
-
-initial :: Board
-initial = [5,4,3,2,1]
-
-finished :: Board -> Bool
-finished = all (== 0)
-
-{-
-
-A move in the game is specified by a row number
-and the number of stars to be removed, and is valid
-if the row contains at least this many stars.
-
-Example:
-
--- The first row on the initial board contains at least 3 stars
-> valid initial 1 3
-True
-
--- The 4th row contains fewer than 3 stars
-> valid inital 4 3
-False
-
--}
-
-valid :: Board -> Int -> Int -> Bool
-valid board row num = board !! (row - 1) >= num
-
-{-
-
-A valid move can then be applied to a board to
-give a new board by using a list comprehension
-to update the number of stars taht remain in 
-each row.
-
-Example:
-
--- 3 stars have been removed in the 1 row
-> move inital 1 3
-[2,4,3,2,1]
-
--}
-
-move :: Board -> Int -> Int -> Board
-move board row num = [update r n | (r, n) <- zip [1..] board]
-   where update r n = if r == row then (n - num) else n
-
-
--- IO Utils
-
-putRow :: Int -> Int -> IO ()
-putRow row num = do putStr (show row)
-                    putStr ": "
-                    putStrLn (concat (replicate num "* "))
-
-putBoard :: Board -> IO ()
-putBoard [a,b,c,d,e] = do putRow 1 a
-                          putRow 2 b
-                          putRow 3 c
-                          putRow 4 d
-                          putRow 5 e
-
-getDigit :: String -> IO Int
-getDigit prompt = do putStr prompt
-                     x <- getChar
-                     newline 
-                     if isDigit x then
-                        return (digitToInt x)
-                     else
-                        do putStrLn "ERROR: Invalid digit"
-                           getDigit prompt
-
-newline :: IO ()
-newline = putChar '\n'
-
-
--- Game of nim
-
-play :: Board -> Int -> IO ()
-play board player =
-   do newline
-      putBoard board
-      if finished board then
-         do newline
-            putStr "Player "
-            putStr (show (next player))
-            putStrLn " wins!"
-      else
-         do newline
-            putStr "Player " 
-            putStrLn (show player)
-            row <- getDigit "Enter a row number: "
-            num <- getDigit "Stars to remove: "
-            if valid board row num then
-               play (move board row num) (next player)
-            else
-               do newline
-                  putStrLn "ERROR: Invalid move"
-                  play board player
+-- Main method welcomes the player, displays the initial board and calls the
+-- first turn
 nim :: IO ()
-nim = play initial 1
+nim = do putStrLn "Welcome to nim!"
+         putStrLn (display initialBoard)
+         turn initialBoard One
+
+-- The turn method displays the player and asks for a movement, then checks if
+-- there was a problem performing that movement and continues the game. This is
+-- the main game loop
+turn :: Board -> Player -> IO ()
+turn board player = do putStrLn ("\nIt's your turn, Player " ++ (show player) ++ "!")
+                       putStrLn "Choose a row to remove stars!"
+                       row <- getLine
+                       putStrLn "How many stars do you want to remove?"
+                       stars <- getLine
+                       let newBoard = move board ((read row) - 1, read stars)
+                       if newBoard == Nothing
+                         then do putStrLn "Not valid movement"
+                                 turn board player
+                         else isOver (fromJust newBoard) (change player)
+
+-- isOver checks if the Board is empty, and checks whether the game is over or
+-- the next turn must be called
+isOver :: Board -> Player -> IO()
+isOver board player = do if board == Seq.fromList [0, 0, 0, 0, 0]
+                           then putStrLn ("Congratulations, Player " ++ (show player)
+                                         ++ ", you win!")
+                           else do putStrLn ""
+                                   putStrLn (display board)
+                                   turn board player
